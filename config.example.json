@@ -1,0 +1,29 @@
+{
+  "group_name": "X-Talk",
+  "max_llm_streak": 2,
+  "max_tool_steps": 20,
+  "max_context_messages": 80,
+  "members": [
+    {
+      "name": "Me",
+      "type": "human",
+      "role": "boss"
+    },
+    {
+      "name": "Artemis",
+      "type": "openai",
+      "model": "your-model-name",
+      "base_url": "http://127.0.0.1:8080/v1",
+      "executor": {
+        "type": "local"
+      },
+      "system_prompt": "You are Artemis, a local AI assistant in this group.",
+      "host_hint": "Local Windows PC. Shell is PowerShell 5.1.",
+      "enabled": true,
+      "vision": false,
+      "timeout": 300,
+      "avatar": "Ar.png",
+      "role": "member"
+    }
+  ]
+}

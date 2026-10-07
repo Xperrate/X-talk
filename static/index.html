@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>X-Talk</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; }
+body { font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif; background:#d8d8d8; display:flex; justify-content:center; }
+.shell { width:min(790px,100%); height:100vh; display:flex; box-shadow:0 0 24px rgba(0,0,0,.08); }
+/* ---- session sidebar(Function4)---- */
+.sidenav { width:195px; flex-shrink:0; background:#2e2e2e; color:#bbb; display:flex; flex-direction:column; }
+.sn-head { padding:14px 12px; font-size:14px; font-weight:600; color:#fff; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #3d3d3d; flex-shrink:0; }
+.sn-head button { width:22px; height:22px; line-height:18px; border-radius:4px; border:none; background:#07C160; color:#fff; font-size:15px; cursor:pointer; padding:0; }
+.sn-head button:hover { background:#06ad56; }
+.sn-list { flex:1; overflow-y:auto; padding-top:6px; }
+.sn-item { display:flex; align-items:center; gap:6px; padding:9px 10px 9px 12px; font-size:13px; cursor:pointer; border-left:3px solid transparent; white-space:nowrap; user-select:none; }
+.sn-item .sn-name { flex:1; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.sn-del { display:none; border:none; background:none; color:#8a8a8a; font-size:14px; line-height:1; cursor:pointer; padding:2px 5px; border-radius:3px; flex-shrink:0; }
+.sn-item:hover .sn-del { display:block; }
+.sn-del:hover { background:#fa5151; color:#fff; }
+.sn-item:hover { background:#3a3a3a; color:#ddd; }
+.sn-item.active { background:#464646; color:#fff; border-left-color:#07C160; }
+/* ---- Function10d:Left column top and bottom halves + agent Address Book(onlinestatus point + Focus schema toggle switch)---- */
+.sn-top { flex:1 1 50%; min-height:0; display:flex; flex-direction:column; }   /* Top Half:sessionlist area(sn-head+sn-list As it is) */
+.ad-wrap { flex:1 1 50%; min-height:0; display:flex; flex-direction:column; border-top:2px solid #3d3d3d; background:#343434; }   /* lower half:agent Address Book */
+.ad-head { padding:9px 12px 7px; font-size:12px; color:#8f8f8f; letter-spacing:.5px; flex-shrink:0; border-bottom:1px solid #3f3f3f; user-select:none; }
+.ad-list { flex:1; overflow-y:auto; padding-top:4px; min-height:0; }
+.ad-item { display:flex; align-items:center; gap:7px; padding:8px 10px 8px 12px; font-size:13px; user-select:none; border-left:3px solid transparent; }
+.ad-item:hover { background:#3a3a3a; color:#ddd; }
+.ad-avatar { width:30px; height:30px; border-radius:6px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:14px; overflow:hidden; color:#fff; }
+.ad-avatar.imgav { padding:0; }
+.ad-avatar.imgav img { width:100%; height:100%; object-fit:cover; display:block; border-radius:6px; background:#e9e9e9; }
+.ad-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#ccc; }
+.ad-pres { font-size:11px; flex-shrink:0; padding:2px 7px; border-radius:8px; background:rgba(7,193,96,.2); color:#4cd07d; white-space:nowrap; }   /* online=Green */
+.ad-pres.off { background:rgba(255,255,255,.1); color:#a3a3a3; }                                                    /* offline=Abu(hover See why/time) */
+.fsw { position:relative; width:34px; height:19px; border-radius:10px; background:#6f6f6f; flex-shrink:0; cursor:pointer; transition:background .15s; margin-left:2px; }   /* Focus switch(Latching power down=Abu) */
+.fsw:hover { filter:brightness(1.1); }
+.fsw.on { background:#FA9D3B; }                                                                                     /* On=Orange,Eye-catching prompt"Focusing, not chatting back" */
+.fsw i { position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#fff; transition:left .15s; display:block; }
+.fsw.on i { left:17px; }
+.privbox { display:none; flex-direction:column; gap:6px; border-top:2px solid #3d3d3d; background:#2e2e2e; padding:8px 9px; flex-shrink:0; }   /* Function10g private chat box(Point Contacts Line Expand) */
+.privbox.on { display:flex; }
+.pb-head { display:flex; align-items:center; justify-content:space-between; font-size:12.5px; color:#e8a33d; user-select:none; min-width:0; gap:6px; }
+.pb-head span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; }
+.pb-head button { border:none;background:none;color:#9a9a9a;font-size:15px;line-height:1;cursor:pointer;padding:0 2px;flex-shrink:0;}
+.pb-head button:hover{color:#fff;}
+#pbText { width:100%; resize:none; border:1px solid #454545; background:#3a3a3a; color:#ddd; border-radius:6px; padding:7px 9px; font-size:12.5px; line-height:1.45; font-family:inherit; outline:none; min-width:0; }
+#pbText:focus { border-color:#FA9D3B; }
+.privbox .btndispatch { background:#FA9D3B; padding:6px 12px; align-self:flex-end; margin-top:0; }   /* private chat=Orange,Echo Focus Switch */
+.privbox .btndispatch:hover { background:#e88f2d; color:#fff; border-color:#e88f2d; }
+/* ---- Primary Column(Original layout)---- */
+.app { flex:1; min-width:0; height:100%; display:flex; flex-direction:column; background:#ededed; position:relative; }
+.header { background:#07C160; color:#fff; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.header .title { font-size:17px; font-weight:600; }
+.header .sub { font-size:12px; opacity:.9; text-align:right; line-height:1.4; max-width:58%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.msgs { flex:1; overflow-y:auto; padding:16px 14px 8px; display:flex; flex-direction:column; gap:14px; }
+.row { display:flex; gap:10px; align-items:flex-start; max-width:100%; }
+.row.self { flex-direction:row-reverse; }
+.avatar { width:38px; height:38px; border-radius:6px; color:#fff; font-size:17px; display:flex; align-items:center; justify-content:center; flex-shrink:0; user-select:none; }
+.wrap { max-width:68%; min-width:40px; display:flex; flex-direction:column; }
+.row.self .wrap { align-items:flex-end; }
+.meta { font-size:12px; color:#9a9a9a; margin-bottom:3px; padding:0 2px; }
+.bubble { background:#fff; border-radius:6px; padding:9px 12px; font-size:15px; line-height:1.55; white-space:pre-wrap; word-break:break-word; box-shadow:0 1px 1px rgba(0,0,0,.04); }
+.row.self .bubble { background:#95ec69; }
+.sysline { align-self:center; font-size:12px; color:#b0b0b0; padding:2px 8px; max-width:85%; word-break:break-all; text-align:center; }
+.typing { font-size:13px; color:#8a8a8a; padding:0 4px; display:flex; gap:6px; align-items:center; }
+.typing .dot { width:6px; height:6px; border-radius:50%; background:#7ec98d; animation:blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+/* ---- New message logo(Function3)---- */
+.newmsg-badge { position:absolute; left:50%; transform:translateX(-50%); bottom:96px; display:none; background:#fff; color:#07C160; border-radius:14px; padding:5px 16px; font-size:12.5px; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer; z-index:8; user-select:none; }
+.newmsg-badge:hover { background:#f3fff7; }
+/* ---- toolbar / input area ---- */
+.inputbar { display:flex; gap:8px; padding:6px 12px 4px; background:#f7f7f7; border-top:1px solid #e3e3e3; flex-shrink:0; align-items:flex-end; }
+.chips { display:none; flex-wrap:wrap; gap:5px; width:calc(100% - 64px); padding-bottom:2px; }
+.chip { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #d9e8dc; color:#3c7a4f; font-size:12px; border-radius:5px; padding:2px 6px; max-width:100%; }
+.chip .cn { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; }
+.chip button { border:none; background:none; color:#999; cursor:pointer; font-size:13px; line-height:1; padding:0 2px; flex-shrink:0; }
+.chip button:hover { color:#fa5151; }
+.inputrow { display:flex; gap:8px; width:100%; align-items:flex-end; }
+#input { flex:1; resize:none; border:none; outline:none; background:#fff; border-radius:6px; padding:9px 12px; font-size:15px; line-height:1.4; max-height:96px; font-family:inherit; min-width:0; }
+.btn { border:none; border-radius:6px; color:#fff; font-size:14px; cursor:pointer; padding:0 16px; height:38px; flex-shrink:0; }
+#sendBtn { background:#07C160; }
+#sendBtn:hover { background:#06ad56; }
+#stopBtn { background:#fa5151; display:none; }
+.btn-clip { border:1px solid #d9d9d9; background:#fff; color:#5c8a6b; font-size:13.5px; padding:0 12px; height:38px; border-radius:6px; cursor:pointer; flex-shrink:0; }
+.btn-clip:hover { border-color:#07C160; background:#f4fbf6; }
+.toolbar { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#9a9a9a; padding:5px 12px; background:#f7f7f7; flex-shrink:0; gap:8px; }
+.ctlbox { display:flex; align-items:center; gap:6px; margin-left:auto; }
+.streakCtl { display:flex; gap:6px; align-items:center; cursor:pointer; user-select:none; white-space:nowrap; }
+.streakCtl button { width:20px; height:20px; line-height:18px; border-radius:50%; border:1px solid #d9d9d9; background:#fff; color:#666; font-size:13px; cursor:pointer; padding:0; }
+.streakCtl button:hover { background:#f2f2f2; }
+.gear { background:rgba(255,255,255,.18); border:none; color:#fff; border-radius:4px; font-size:13px; padding:4px 10px; cursor:pointer; flex-shrink:0; }
+.gear:hover { background:rgba(255,255,255,.3); }
+/* ---- Bullet Layer / formpanel ---- */
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:9; }
+.panel { background:#fff; width:min(680px,92vw); max-height:84vh; border-radius:10px; display:flex; flex-direction:column; padding:14px 16px; overflow-y:auto; }
+.phead { display:flex; justify-content:space-between; align-items:center; font-size:15px; margin-bottom:4px; }
+.phint { font-size:12px; color:#9a9a9a; margin-bottom:10px; line-height:1.5; }
+.pclose { cursor:pointer; color:#999; font-size:22px; line-height:1; padding:0 4px; }
+.pm { border:1px solid #eee; border-radius:8px; padding:10px 12px; margin-bottom:12px; background:#fafafa; }
+.pm .t { font-size:13px; margin-bottom:6px; display:flex; gap:8px; align-items:center; color:#555; flex-wrap:wrap; }
+.mname { font-weight:600; color:#333 !important; }
+.mmeta { color:#aaa; font-size:12px; }
+.pdel { border:none; background:none; color:#c96a6a; font-size:12px; cursor:pointer; margin-left:auto; flex-shrink:0; }
+.pdel:hover { color:#fa5151; text-decoration:underline; }
+.pm textarea, .pm input[type=text], .pm select { width:100%; border:1px solid #e3e3e3; border-radius:6px; padding:7px 10px; font-size:13px; line-height:1.5; resize:vertical; font-family:inherit; outline:none; background:#fff; }
+.pm textarea { min-height:96px; }
+.pm input[type=text]:focus, .pm select:focus, .pm textarea:focus { border-color:#07C160; }
+.psave { margin-top:8px; background:#07C160; border:none; color:#fff; border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; float:right; }
+.psave:hover { background:#06ad56; }
+.formrow { display:flex; flex-direction:column; gap:9px; margin-bottom:12px; }
+.fld { display:flex; align-items:center; gap:8px; font-size:13px; color:#555; }
+.fld label { width:64px; flex-shrink:0; text-align:right; color:#777; }
+.fld input[type=text], .fld select, .fld textarea { flex:1; border:1px solid #e3e3e3; border-radius:6px; padding:7px 10px; font-size:13px; outline:none; background:#fff; min-width:0; }
+.fld input[type=text]:focus, .fld select:focus { border-color:#07C160; }
+#execUrlRow { display:none; }
+/* Feature#host-echo:tool echo collapse group(opencodeEnglish) */
+.toolgrp { align-self:center; max-width:95%; margin:2px 8px; background:#fdf8e4; border:1px solid #efe3b8; border-radius:6px; font-size:12px; color:#7a6c3d; }
+.toolgrp summary { cursor:pointer; list-style:none; padding:5px 10px; display:flex; align-items:center; flex-wrap:wrap; gap:4px; user-select:none; border-radius:6px; }
+.toolgrp summary:hover{ background:#faf2cf; }
+.toolgrp summary::-webkit-details-marker { display:none; }
+.tglist { max-height:230px; overflow:auto; border-top:1px dashed #e5d9a8; padding:7px 10px; text-align:left; background:#fffdf3; }
+.tgcmd { font-family:Consolas,monospace; color:#5c5232; word-break:break-all; white-space:pre-wrap; line-height:1.55; margin:2px 0; }
+.tgi { color:#a8946a; user-select:none; }
+.pm-host { display:flex; gap:6px; align-items:center; margin:6px 0 2px; font-size:12px; color:#576b95; flex-wrap:wrap; }   /* Feature#host:Your host IP edit line */
+.pm-host input { flex:1; min-width:180px; padding:4px 8px; border:1px solid #dcdcdc; border-radius:4px; font-size:12px; }
+/* ---- Function7/8:task sidebar + Daily Record + file channel ---- */
+.gear.on { background:#fff; color:#07C160; }
+body.tasks-open .shell { width:min(1240px,100%); }
+.taskbar { display:none; width:258px; flex-shrink:0; background:#f9fafb; border-left:1px solid #e3e3e3; flex-direction:column; min-width:0; height:100%; }
+body.tasks-open .taskbar { display:flex; }
+.drophint { position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; background:rgba(7,193,96,.12); cursor:copy; }
+.drophint span { padding:24px 38px; font-size:15px; color:#3c3c3c; background:#fff; border:2px dashed #07C160; border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,.15); user-select:none; }
+.tb-sess { margin-left:auto; align-self:center; font-size:11.5px; color:#9a9a9a; padding-right:10px; max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0; }
+.tb-tabs { display:flex; border-bottom:1px solid #e8e8e8; background:#fff; flex-shrink:0; }
+.tb-tab { flex:1; text-align:center; font-size:12.5px; color:#7a7a7a; padding:9px 4px 8px; cursor:pointer; border-bottom:2px solid transparent; user-select:none; white-space:nowrap; overflow:hidden; }
+.tb-tab:hover { color:#3c3c3c; background:#fafafa; }
+.tb-tab.on { color:#07C160; font-weight:600; border-bottom-color:#07C160; }
+#tbList { flex:1; overflow-y:auto; padding:8px 9px; min-height:0; position:relative; }
+.trow { display:flex; gap:5px; background:#fff; border:1px solid #e6e6e6; border-radius:7px; padding:7px 8px 7px 3px; margin-bottom:6px; align-items:flex-start; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+.trow .grip { color:#c9c9c9; cursor:grab; user-select:none; font-size:14px; line-height:22px; flex-shrink:0; padding:0 5px 0 1px; letter-spacing:-3px; touch-action:none; }
+.trow .grip:hover { color:#8a8a8a; }
+.trow.dragging { opacity:.45; border-style:dashed; }
+.dropind { height:3px; background:#07C160; border-radius:2px; margin:-2px 8px 5px; flex-shrink:0; pointer-events:none; }
+.tbody { flex:1; min-width:0; }
+.tcontent { font-size:13px; line-height:1.45; word-break:break-word; color:#333; white-space:pre-wrap; }
+.tmeta { display:flex; gap:6px; align-items:center; margin-top:5px; flex-wrap:wrap; }
+.tagasg { font-size:11px; background:#e8f7ee; color:#0a9e4d; border-radius:3px; padding:1px 6px; white-space:nowrap; }
+.ttime { font-size:11px; color:#b5b5b5; white-space:nowrap; }
+.btncheck { flex-shrink:0; width:25px; height:25px; line-height:23px; border-radius:50%; border:1.5px solid #cfcfcf; background:#fff; color:#bdbdbd; font-size:14px; cursor:pointer; padding:0; margin-top:1px; text-align:center; }
+.btncheck:hover { border-color:#07C160; color:#07C160; background:#f2fbf5; }
+.tb-empty { text-align:center; color:#b8b8b8; font-size:12.5px; padding:28px 10px; line-height:1.9; white-space:pre-line; }
+.tb-composer { border-top:1px solid #e8e8e8; background:#f4f5f6; padding:8px 9px 9px; flex-shrink:0; display:flex; flex-direction:column; gap:7px; }
+#taskText { width:100%; resize:none; border:1px solid #dcdcdc; border-radius:6px; padding:7px 9px; font-size:13px; line-height:1.45; font-family:inherit; outline:none; background:#fff; min-width:0; }
+#taskText:focus { border-color:#07C160; }
+.tb-crow { display:flex; gap:7px; align-items:center; }
+#taskAgent { flex:1; min-width:0; border:1px solid #dcdcdc; border-radius:6px; padding:5px 6px; font-size:12.5px; background:#fff; outline:none; color:#444; font-family:inherit; }
+.btndispatch { border:none; background:#07C160; color:#fff; border-radius:6px; font-size:13px; padding:6px 15px; cursor:pointer; flex-shrink:0; white-space:nowrap; }
+.btndispatch:hover { background:#06ad56; }
+.dayblk { margin-bottom:10px; background:#fff; border-radius:7px; padding:8px 10px; border:1px solid #ececec; }
+.dhead { font-size:13px; font-weight:600; color:#444; margin-bottom:5px; display:flex; justify-content:space-between; align-items:center; gap:6px; }
+.dcount { font-size:11.5px; color:#a8a8a8; font-weight:normal; white-space:nowrap; }
+.dayblk ul { list-style:none; padding:0; margin:2px 0 4px; }
+.dayblk li { font-size:12.5px; line-height:1.5; padding:3px 0 3px 19px; position:relative; word-break:break-word; color:#4a4a4a; border-bottom:1px dashed #f0f0f0; }
+.dayblk li:last-child { border-bottom:none; }
+.li-done::before { content:"✓"; position:absolute; left:3px; top:2.5px; color:#07C160; font-weight:700; }
+.li-undone::before { content:"○"; position:absolute; left:3px; top:2.5px; color:#e8a33d; }
+.li-done .ltx { color:#9aa59c; text-decoration:line-through 1px rgba(7,193,96,.4); }
+.limeta { font-size:11px; color:#bbb; margin-left:5px; white-space:nowrap; }
+.filerow { display:flex; align-items:center; gap:7px; background:#fff; border:1px solid #ececec; border-radius:6px; padding:6px 8px; margin-bottom:5px; font-size:12.5px; min-width:0; }
+.filerow a { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#3c7a4f; cursor:pointer; text-decoration:none; font-weight:600; }
+.filerow a:hover { text-decoration:underline; }
+.filewho { font-size:11px; color:#989898; flex-shrink:0; max-width:72px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* ---- Function6:@Roll Call Elastic Layer + Attachmentpreview inside the bubble ---- */
+#mentMenu { position:fixed; z-index:30; background:#fff; border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,.2); padding:4px; min-width:150px; display:none; }
+.mm-item { font-size:13.5px; color:#3c3c3c; padding:7px 12px; border-radius:5px; cursor:pointer; white-space:nowrap; user-select:none; }
+.mm-item:hover, .mm-item.hot { background:#f2fbf5; color:#0a9e4d; font-weight:600; }
+.mention { color:#fa9d3b; font-weight:600; }
+.bubble.taskmsg { background:#f2fbf4; border-left:3px solid #07C160; }
+.row.self .bubble.taskmsg { background:#8bea5e; }
+.atts { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; max-width:100%; }
+.att-img { max-width:184px; max-height:142px; border-radius:6px; cursor:pointer; background:#e9e9e9; object-fit:cover; box-shadow:0 1px 3px rgba(0,0,0,.15); display:block; }
+.att-file { display:inline-flex; align-items:center; gap:6px; background:#fff; border:1px solid #dbe8dd; color:#3c7a4f; font-size:12px; border-radius:5px; padding:4.5px 9px; cursor:pointer; text-decoration:none; max-width:100%; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+.att-file:hover { background:#f2fbf5; }
+.att-file .an { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px; font-weight:600; }
+/* ---- Function10/10b:membersonlinestatus points + customavatar ---- */
+.pdot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#07c160; margin-left:4px; vertical-align:-.5px; }   /* online=green point(bbPress Default) */
+.pdot.off { background:#bdbdbd; }                                                                                                  /* offline=Grey dots(hover See why/time) */
+.avatar.imgav { padding:0; overflow:hidden; }
+.avatar.imgav img { width:100%; height:100%; object-fit:cover; display:block; border-radius:6px; background:#e9e9e9; }
+.pm-ident { display:flex; gap:7px; margin-bottom:9px; align-items:center; flex-wrap:wrap; font-size:12.5px; color:#777; }
+.pm-ident input[type=text] { width:auto; max-width:none; flex:0 1 236px; border:1px solid #e3e3e3; border-radius:6px; padding:6px 9px; font-size:13px; outline:none; background:#fff; }
+.pm-ident input[type=text]:focus { border-color:#07C160; }
+.pm-ident button { border:none; background:#07c160; color:#fff; font-size:12.5px; border-radius:5px; padding:6px 13px; cursor:pointer; flex-shrink:0; white-space:nowrap; margin-left:auto; }
+.pm-ident button:hover { background:#06ad56; }
+.avprev { width:38px; height:38px; border-radius:6px; background:#eee center/contain no-repeat; flex-shrink:0; border:1px solid #e3e3e3; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; color:#fff; overflow:hidden; }   /* Function10b-v2:avatar real-time preview when roleedit(image or color block words) */
+.avprev img { width:100%; height:100%; object-fit:cover; display:block; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="sidenav">
+    <!-- Feature#10d:Left column top and bottom halves——Top Half=session(chat record)list,Next Half=agent Address Book(onlinestatus + Focus schema switch) -->
+    <div class="sn-top">
+      <div class="sn-head"><span id="sideTitle">X-Talk</span><button type="button" id="newSessBtn" title="new a standalone dialoguecontext(session)">+</button></div>
+      <div class="sn-list" id="sessList"></div>
+    </div>
+    <div class="ad-wrap">
+      <div class="ad-head">Agent Address Book<span style="font-weight:400;color:#8a8a8a;font-size:11.5px">(Dotted=private chat · Right-side toggle=Focus switch)</span></div>
+      <div class="ad-list" id="agentDir"></div>   <!-- Function10d/10f:EACH agent party(avatar+Name+online/offline+Focus Free Switch),JS renderAgentDir() rendered -->
+      <!-- Function10g private chat box——versus what you're focusing on. agent 1: 1 communication taskprogress;Other members are[private chat silence]Constraints on not interrupting -->
+      <div class="privbox" id="privBox">
+        <div class="pb-head"><span id="pbName"></span><button type="button" id="pbClose" title="close">×</button></div>
+        <textarea id="pbText" rows="2" placeholder="with the agent One-on-one communication(taskprogress/Detach);Enter send,Shift+Enter Line Wrap"></textarea>
+        <button type="button" class="btndispatch" id="pbSend">private chat</button>
+      </div>
+    </div>
+  </div>
+  <div class="app">
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+        <span class="title" id="groupName">X-Talk</span>
+        <span class="sub" id="memberSub"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <button type="button" class="gear" id="tasksBtn" title="task checklist / Daily Record / file channel(Function7/8)">task</button>
+        <button type="button" class="gear" id="addBtn" title="Add one directly in the UI LLM assistant">+ assistant</button>
+        <button type="button" class="gear" id="gearBtn" title="edit each LLM The role of the person setting(system prompt)">Person Settings</button>
+      </div>
+    </div>
+
+    <!-- Function2:added means of assistance falls -->
+    <div class="overlay" id="addOverlay" style="display:none">
+      <div class="panel">
+        <div class="phead"><b>added LLM assistant</b><span class="pclose" id="closeAdd">×</span></div>
+        <div class="phint">join the group immediately after save takes effect and writes config.json(Keep after restart)。type/model/base_url Need to match the service of this adapter;the execute channel determines which computer it can operate.</div>
+        <div class="formrow">
+          <div class="fld"><label for="mName">Name</label><input type="text" id="mName" placeholder="E.g.:assistantC"></div>
+          <div class="fld"><label for="mAvatar">avatar</label><input type="text" id="mAvatar" placeholder="Optional;emoji/Short text or image URL,Leave null for default(Initial Color Block)"></div>
+          <div class="fld"><label for="mType">type</label><select id="mType"></select></div>
+          <div class="fld"><label for="mModel">model</label><input type="text" id="mModel" placeholder="E.g.:qwen2.5:7b / Qwen3.8-27B-Q6_K"></div>
+          <div class="fld"><label for="mBaseUrl">endpoint</label><input type="text" id="mBaseUrl" placeholder="Leave null for adapter default(openai default https://api.openai.com/v1,ollama default http://localhost:11434)"></div>
+          <div class="fld"><label for="mPrompt">Persona</label><input type="text" id="mPrompt" placeholder="Optional; leave empty for a general X-Talk member; after joining, you can fine-tune it in 'Member Settings'"></div>
+          <div class="fld"><label for="mRole">role</label><select id="mRole"><option value="member">members</option><option value="leader">leader</option></select></div>
+          <div class="fld"><label for="mExecType">execute channel</label>
+            <select id="mExecType">
+              <option value="">No config(Pure chat)</option>
+              <option value="local">Local subprocess (machine where the X-Talk service runs)</option>
+              <option value="remote">remote pc_agent(http address)</option>
+            </select>
+          </div>
+          <div class="fld" id="execUrlRow"><label for="mExecUrl">pc_agent</label><input type="text" id="mExecUrl" placeholder="http://192.168.x.x:8931"></div>
+        </div>
+        <button type="button" class="psave" id="addSubmit" style="float:right">Join X-Talk</button>
+      </div>
+    </div>
+
+    <!-- Personnel settings settings elastic layer -->
+    <div class="overlay" id="overlay" style="display:none">
+      <div class="panel">
+        <div class="phead"><b>members person set(system prompt)</b><span class="pclose" id="closePanel">×</span></div>
+        <div class="phint">effective immediately after save and write config.json;next time LLM speak is to use the new person setting.</div>
+        <div id="promptList"></div>
+      </div>
+    </div>
+
+    <div class="msgs" id="msgs"></div>
+    <div class="newmsg-badge" id="newBadge">↓ There is a new message</div>
+    <div class="toolbar">
+      <span id="status"></span>
+      <div class="ctlbox">
+        <label class="streakCtl" title="Turn limit: each AI member may speak up to N rounds. Members take turns in order; if they pass or time out, they forfeit that turn. Changes take effect immediately and save.">AISingle Round Limit<button type="button" id="decBtn">&minus;</button><b id="streakVal">2</b><button type="button" id="incBtn">+</button></label>
+        <label class="streakCtl" title="Single-round command limit:is_single agent Up to consecutive calls in one speak shell How many times. Soft budget——After the top is reached, the reminder ends and allows it again +5 Kali,Force outputprogress summary only if it still does not converge(No direct strike);Extreme dead loops have a hard top pocket bottom. Complex multi-step tasks can be adjusted upwards;Changes take effect immediately and save.">tool/4. wheel<button type="button" id="decTool">&minus;</button><b id="toolmaxVal">5</b><button type="button" id="incTool">+</button></label>
+      </div>
+    </div>
+    <div class="inputbar">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+        <div class="chips" id="chips"></div>
+        <div class="inputrow">
+          <button type="button" class="btn-clip" id="clipBtn" title="Add attachment (upload to the local machine; the LLM can read/process it through the command channel)">Attach</button>
+          <textarea id="input" rows="1" placeholder="inputmessage,Enter send / Shift+Enter Line Wrap"></textarea>
+        </div>
+      </div>
+      <button class="btn" id="sendBtn">send</button>
+      <button class="btn" id="stopBtn">stop AI</button>
+    </div>
+    <input type="file" id="filePick" multiple style="display:none">
+  </div>
+
+  <!-- Function7/8:task sidebar(in progress / Daily Record / file channel)-->
+  <aside class="taskbar" id="taskbar">
+    <div class="tb-tabs">
+      <div class="tb-tab on" data-v="tasks">in progress<span id="tCount"></span></div>
+      <div class="tb-tab" data-v="days">Daily Record</div>
+      <div class="tb-tab" data-v="files">file channel</div>
+      <span class="tb-sess" id="tbSessName"></span>
+    </div>
+    <div id="tbList"></div>
+    <div class="tb-composer" id="tbComposer">
+      <textarea id="taskText" rows="2" placeholder="Fill in taskcontent(Open header @Assistant First Name Directly nameable)"></textarea>
+      <div class="tb-crow">
+        <select id="taskAgent"></select>
+        <button type="button" class="btndispatch" id="dispatchBtn">issued</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Function6:@Roll Call Candidate Layer -->
+  <div id="mentMenu"></div>
+</div>
+<script>
+const msgsEl = document.getElementById("msgs");
+const inputEl = document.getElementById("input");
+const sendBtn = document.getElementById("sendBtn");
+const stopBtn = document.getElementById("stopBtn");
+const statusEl = document.getElementById("status");
+let me = "", ws = null, typingSet = new Set();
+let membersCache = [], sessionsCache = [];
+const lang = "zh";
+function T(k){ let s=k; for(let i=1;i<arguments.length;i++){ s=String(s).replace("%s", arguments[i]); } return s; }
+function setStatus(s){ statusEl.textContent=s; }
+
+function hue(name){ let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))%360; return h; }
+/* ---- Function10b-v2:avatarparse —— bbPress Default=Built-in image(Me=Me.png / agent=Ai.png,Along with the project, the root is relative URL);custom=URL/dataURI/headpic Inner file name;Other text→Color Block Words ---- */
+function memberBy(nm){ return (membersCache||[]).find(m=>m.name===nm); }
+const IMG_AV_RE=/^https?:\/\//i, BARE_FILE_RE=/^[\w\u4e00-\u9fff\-. ]{1,64}\.(png|jpe?g|gif|webp)$/i;
+function isImgAv(v){ v=String(v||""); return IMG_AV_RE.test(v)||v.indexOf("data:image/")===0; }
+function resolveAvatarUrl(name){   // returnimage URL,OR null(→Text color block display)
+  const m=memberBy(name); if(!m) return "/headpic/Ai.png";
+  const av=String(m.avatar||"");
+  if(av==="") return "/headpic/"+(m.kind==="human"?"Me.png":"Ai.png");   // null=Built-in default graph(Replace old initials blocks)
+  if(isImgAv(av)) return av;
+  if(BARE_FILE_RE.test(av)) return "/headpic/"+encodeURIComponent(av);    // static/headpic/ Inner file name → projectmigration does not expire
+  return null;                                                            // emoji/Short text, etc. → Text Color Block(Compatible with old value)
+}
+function renderAvatar(el,name){
+  const url=resolveAvatarUrl(name), m=memberBy(name), av=m?String(m.avatar||""):"";
+  if(url!=null){ el.classList.add("imgav"); el.style.background=""; 
+    const im=new Image(); im.src=url; im.alt=name||"";
+    im.onerror=function(){   // image load failed(file is missing/network)→ Fallback Initial Color Block,Never Split graph
+      const tv=av?Array.from(av).slice(0,3).join("") : Array.from(name||"?")[0];
+      el.classList.remove("imgav"); el.innerHTML=""; el.style.background=`hsl(${hue(name)},52%,46%)`; el.textContent=tv; };
+    el.innerHTML=""; el.appendChild(im); return; }
+  el.classList.remove("imgav"); el.innerHTML="";
+  const chars=Array.from(av||"");   // av Non-null and non-image(Text avatar)Just go multi-word;Otherwise, the first single character of the name
+  el.style.background=`hsl(${hue(name)},52%,46%)`;
+  el.textContent=(m&&m.kind==="llm"&&chars.length)?chars.slice(0,3).join("") : Array.from(name||"?")[0];
+}
+function avatarPreviewSrc(v,kind){   // roleeditpanel live preview:AND: resolveAvatarUrl Same rule,But eat the input box value directly
+  v=String(v==null?"":v).trim(); const def="/headpic/"+(kind==="human"?"Me.png":"Ai.png");
+  if(v==="") return def;
+  if(isImgAv(v)) return v;
+  if(BARE_FILE_RE.test(v)) return "/headpic/"+encodeURIComponent(v);
+  return null;   // Text value → the preview area shows the color block text instead of the graph
+}
+function fmtTime(ts){ if(!ts) return ""; const d=new Date(ts*1000); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+
+/* ---- Function3:scrollposition hold + New message logo ---- */
+const badge = document.getElementById("newBadge");
+let pendingNew = 0, atBottom = true;
+function nearBottom(){ return msgsEl.scrollHeight - (msgsEl.scrollTop + msgsEl.clientHeight) < 90; }
+function scrollBottom(force){ msgsEl.scrollTop = msgsEl.scrollHeight; if(force!==false){ hideBadge(); atBottom=true; } }
+// smartScroll:user scrolls up to view history without following new messages,Cumulative number of logos
+function smartScroll(){ if(nearBottom()){ scrollBottom(true); } else { pendingNew++; badge.textContent=lang==="en"?T("newMsg",pendingNew):`↓ ${pendingNew} new messages`; badge.style.display="block"; } }
+function hideBadge(){ pendingNew=0; badge.style.display="none"; }
+msgsEl.addEventListener("scroll",()=>{ atBottom = nearBottom(); if(atBottom) hideBadge(); });
+badge.onclick = ()=> scrollBottom(true);
+
+function escHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+const IMG_EXT=/\.(png|jpe?g|gif|webp)$/i;
+
+function addMsg(d){
+  const row=document.createElement("div");
+  row.className="row"+(d.sender===me?" self":"");
+  row.dataset.sender=d.sender;   // Function10/10b:onlinestatus point, name change/Press this to locate the bubble in-place update when changing avatar
+  const avd=document.createElement("div"); avd.className="avatar"; renderAvatar(avd,d.sender); row.appendChild(avd);   // .avatar=38pxFixed width avatar box(imgav/Color block words are within this constraint)
+  const wrap=document.createElement("div"); wrap.className="wrap";
+  if(d.sender!==me){
+    const meta=document.createElement("div"); meta.className="meta";
+    const nk2=document.createElement("span"); nk2.className="mnick"; nk2.textContent=d.sender;   // nick Independent span:Replace in place when renaming
+    meta.appendChild(nk2);
+    const sm=memberBy(d.sender);
+    if(sm&&sm.kind==="llm"){ const dot=document.createElement("span"); dot.className="pdot"+(sm.presence_status==="offline"?" off":""); syncDotTitle(dot,d.sender,sm); meta.appendChild(dot); }   // Function10:LLM Bubble tape online/offlinestatus point
+    meta.appendChild(document.createTextNode(` ${fmtTime(d.ts)}`));
+    wrap.appendChild(meta);
+  }
+  const b=document.createElement("div");
+  b.className="bubble"+((d.content||"").indexOf("[task dispatch]")===0?" taskmsg":"");
+  let html=escHtml(d.content||"");   // Function6:Known member name's @RollCall Highlighted(Escape before replacing,security)
+  (membersCache||[]).forEach(m=>{ if(!m.name) return; html=html.split("@"+m.name).join('<span class="mention">@'+escHtml(m.name)+"</span>"); });
+  b.innerHTML=html;
+  wrap.appendChild(b);
+  const at2=attsBlock(d.files);   // function declaration promotion,can be called here
+  if(at2) wrap.appendChild(at2);
+  row.appendChild(wrap); msgsEl.appendChild(row); smartScroll();
+}
+/* Function6:Intra-group attachmentpreview —— image direct display,The rest for downloadlink(the same applies when historymessage is played back) */
+function attsBlock(files){
+  if(!files||!files.length) return null;
+  const at=document.createElement("div"); at.className="atts";
+  files.forEach(f=>{
+    const stored=encodeURIComponent(String(f.stored||""));
+    if(IMG_EXT.test(String(f.name||f.stored||""))){
+      const im=new Image(); im.src="/uploads/"+stored; im.alt=f.name||""; im.className="att-img";
+      im.title=lang==="en"?T("imageTitle",f.name||""):(f.name||"")+" · clickopen original graph"; im.onclick=()=>window.open("/uploads/"+stored,"_blank");
+      at.appendChild(im);
+    } else {
+      const a=document.createElement("a"); a.href="/uploads/"+stored; a.target="_blank"; a.className="att-file";
+      if(f.name) a.setAttribute("download",f.name);
+      a.title=f.name||"";
+      const an2=document.createElement("span"); an2.className="an";
+      an2.textContent=(f.name||"file")+((typeof f.size==="number")?(" "+(f.size/1024).toFixed(f.size<1048576?1:0)+" KB"):"");
+      a.appendChild(an2); at.appendChild(a);
+    }
+  });
+  return at;
+}
+/* ---- Function10:online/offlinestatus point maintenance(data source=membersCache,init/members/presence event will refresh it)---- */
+function syncDotTitle(dot,name,m){ m=m||memberBy(name); if(!m) return; const off=m.presence_status==="offline"; dot.classList.toggle("off",!!off);
+  if(off){ const i2=m.presence_info||{}; dot.title=lang==="en"?T("offlineReason",name,i2.reason?i2.reason:T("connectionFailed"),i2.ts?new Date(i2.ts*1000).toLocaleTimeString():""):`${name} offline · ${i2.reason?i2.reason:"connectionfailed"} (${i2.ts?new Date(i2.ts*1000).toLocaleTimeString():""})`; } else { dot.removeAttribute("title"); } }
+function syncDots(){   // presence migration/reswipe bubbles on the screen after members change(Cheap)
+  for(const r of document.querySelectorAll(".row[data-sender]")){ const m=memberBy(r.dataset.sender); if(!m||m.kind!=="llm") continue;
+    let dot=r.querySelector(".meta .pdot");
+    if(!dot){ const meta=r.querySelector(".meta"), nk3=r.querySelector(".meta .mnick"); if(!meta) continue;
+      dot=document.createElement("span"); dot.className="pdot"; (nk3?nk3.nextSibling:meta.firstChild)?meta.insertBefore(dot,nk3?nk3.nextSibling:null):meta.appendChild(dot); }
+    syncDotTitle(dot,r.dataset.sender,m); }
+  refreshMemberSub(membersCache);   // the header members line also reflects(offline)Marking
+}
+/* ---- Function10b:Rename/After changing avatar,Sync the old bubbles on the screen in place into a new role(WeChat-style"Live nickname")---- */
+function rowsOf(name){ return [...document.querySelectorAll(".row[data-sender]")].filter(r=>r.dataset.sender===name); }   // filter rather than a property selector:First name can contain special characters such as quotation marks
+function updateAvatarsFor(name){ rowsOf(name).forEach(r=>{ const av=r.children[0]; if(av&&av.classList.contains("avatar")) renderAvatar(av,name); }); }
+function applyIdentityToDOM(from,to){ rowsOf(from).forEach(r=>{ r.dataset.sender=to; const av=r.children[0]; if(av&&av.classList.contains("avatar")) renderAvatar(av,to);
+  const nk4=r.querySelector(".meta .mnick"); if(nk4) nk4.textContent=to; }); }
+
+/* ---- Function10d/10g:Agent Address Book(Left Column Bottom Half)——EACH agent party:avatar + Name + online/offlinestatus + Focus switch;Dotted=open the members private chat box ---- */
+function renderAgentDir(){
+  const box=document.getElementById("agentDir"); if(!box) return; box.innerHTML="";
+  (membersCache||[]).filter(m=>m.kind==="llm").forEach(m=>{   // "All agent"=LLM members(Person class seats None onlinestatus/Focus ON switch concept)
+    const d=document.createElement("div"); d.className="ad-item";
+    const fOn=!!(m.focus&&m.focus.on);
+    const nT=(m.focus&&typeof m.focus.task_count==="number")?m.focus.task_count:0;   // membersview focus={on,task_count}(v1.4 Last event first semantics)
+    d.title=lang==="en"?T("agentDirTitle",m.name,fOn?T("focusing"):T("normal")):`${m.name} · ${fOn?"Focus on the schema":"&Normal"} —— Dotted=private chat communication taskprogress;Right-side toggle=Free to switch focus`;
+    const av=document.createElement("div"); av.className="ad-avatar"; renderAvatar(av,m.name); d.appendChild(av);   // Same AvatarParse as Bubbles(Default graph/custom)
+    const nm=document.createElement("span"); nm.className="ad-name"; nm.textContent=m.name; d.appendChild(nm);
+    if(m.role==="leader"){ const rb=document.createElement("span"); rb.textContent=T("leaderBadge"); rb.style.cssText="margin-left:6px;padding:1px 5px;border-radius:9px;background:#FA9D3B;color:#1f1f1f;font-size:10.5px;font-weight:700"; d.appendChild(rb); }
+    const off=(m.presence_status==="offline");
+    const ps=document.createElement("span"); ps.className="ad-pres"+(off?" off":""); ps.textContent=off?T("offline"):T("online");   // with bubbles pdot Same data source(presence/init/members)
+    if(off){ const i2=m.presence_info||{}; ps.title=lang==="en"?T("offlineReason",m.name,i2.reason?i2.reason:T("connectionFailed"),i2.ts?new Date(i2.ts*1000).toLocaleTimeString():""):`${m.name} offline · ${i2.reason?i2.reason:"connectionfailed"} (${i2.ts?new Date(i2.ts*1000).toLocaleTimeString():""})`; }
+    d.appendChild(ps);
+    const sw=document.createElement("span"); sw.className="fsw"+(fOn?" on":""); sw.appendChild(document.createElement("i"));   // Focus switch:On=Orange, Off=Abu——**Click is effective immediately at any time**(If there is no donetask, it can also be turned off)
+    sw.title=fOn?(lang==="en"?T("focusSwitchOn",nT?T("uncompletedTasks",nT):""):"Focused"+(nT?` · ${nT} undonetasked`:"")+" —— clickexit(Effective immediately even if task is not done;Auto re-entry for new requests)") : (lang==="en"?T("focusSwitchOff"):"click to enter Focus Schema(No more reply chats,Only by @Respond on roll call or private chat)");
+    sw.onclick=(ev)=>{ ev.stopPropagation(); const want=!fOn;   // Clicking an entire line does not trigger,Point-only switch body toggle
+      fetch("/api/focus",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,on:want})}).then(r=>r.json()).then(res=>{ if(!res.ok){ setStatus(T("operationFailed")+(res.error||"")); return; }
+        m.focus={on:!!res.on, task_count:(typeof res.task_count==="number"?res.task_count:0)};   // Subject to the true real valid status of the service-side return(Last event first)
+        renderAgentDir(); refreshMemberSub(membersCache); setStatus(lang==="en"?(res.on?T("focusEntered",m.name):T("focusExited",m.name)):`${m.name} ${res.on?"Enter":"exit"}the Focus Schema`); setTimeout(()=>{setStatus("");},2500); }); };
+    d.appendChild(sw); box.appendChild(d);
+    d.onclick=()=>openPrivBox(m.name,fOn,nT);   // Function10g:Dotted → private chat box(versus what you're focusing on. agent 1: 1 communication taskprogress)
+  });
+}
+
+/* ---- Function10g:private chat box——based on human classrole hair [private chat-X] …(mention=X):X Respond as usual;Other members of this round are system[private chat silence]Constraint not to interject. The message still falls in the current sessionhistory(Share context,Behaviorally only X Participate in dialogue) ---- */
+let privTarget=null;
+function openPrivBox(name,fOn,nT){
+  const bx=document.getElementById("privBox"); if(!bx||!name) return;
+  privTarget=name;
+  document.getElementById("pbName").textContent=lang==="en"?T("privBoxTitle",name,fOn?T("focusSuffix"):(nT?T("taskSuffix",nT):"")):"private chat · "+name+(fOn?" (Focused)":(nT?` (${nT}task)`:""));
+  bx.classList.add("on"); const ta=document.getElementById("pbText"); if(ta){ ta.value=""; setTimeout(()=>ta.focus(),30); }
+}
+function closePrivBox(){ const bx=document.getElementById("privBox"); if(bx) bx.classList.remove("on"); privTarget=null; }
+async function sendPriv(){
+  if(!privTarget) return;
+  const ta=document.getElementById("pbText"); const txt=(ta.value||"").trim().slice(0,2000);
+  if(!txt){ setStatus(T("privateEmpty")); setTimeout(()=>{setStatus("");},1500); return; }
+  try{
+    const res=await (await fetch("/api/private",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:privTarget,content:txt,session:(curSid||undefined)})})).json();
+    if(!res.ok){ setStatus(T("privateFailed")+(res.error||"")); return; }
+    ta.value=""; setStatus(lang==="en"?T("privateSent",privTarget):`Private Chat Already ${privTarget},waitingreply…`); setTimeout(()=>{setStatus("");},2500);
+  }catch(e){ setStatus(T("privateException")+e.message); }
+}
+(function(){ const c=document.getElementById("pbClose"), s2=document.getElementById("pbSend"), t3=document.getElementById("pbText");   // private chat box control binding(script in body At end,Element readiness)
+  if(c) c.onclick=closePrivBox; if(s2) s2.onclick=()=>sendPriv();
+  if(t3) t3.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendPriv(); } }); })();   // Enter send,Shift+Enter Line Wrap
+
+function sysline(text){ const s=document.createElement("div"); s.className="sysline"; s.textContent=text; msgsEl.appendChild(s); smartScroll(); }
+
+function showTyping(sender){
+  if(typingSet.has(sender)) return;
+  typingSet.add(sender);
+  const t=document.createElement("div"); t.className="typing"; t.dataset.sender=sender;
+  t.innerHTML=`<span class="dot"></span><span>${escHtml(sender)} ${T("typing")}</span>`;
+  msgsEl.appendChild(t); smartScroll(); updateStopBtn();
+}
+function hideTyping(sender){
+  if(!typingSet.has(sender)) return;
+  typingSet.delete(sender);
+  const t=msgsEl.querySelector(`.typing[data-sender="${sender}"]`);
+  if(t) t.remove(); updateStopBtn();
+}
+function clearAllTyping(){ for(const s of [...typingSet]) hideTyping(s); }
+function updateStopBtn(){ stopBtn.style.display = typingSet.size ? "block" : "none"; }
+
+function renderHistory(history){ msgsEl.innerHTML=""; (history||[]).forEach(addMsg); scrollBottom(true); clearAllTyping(); }
+
+/* ---- Function4:session(context)Sidebar ---- */
+let curSid = null;
+function sessRender(){
+  const box=document.getElementById("sessList"); box.innerHTML="";
+  (sessionsCache||[]).forEach(s=>{
+    const d=document.createElement("div");
+    d.className="sn-item"+(s.id===curSid?" active":"");
+    d.title=lang==="en"?T("sessionTitle",s.created?new Date(s.created*1000).toLocaleDateString():""):`click toggle · Double-click renamed (${s.created?new Date(s.created*1000).toLocaleDateString():""})`;
+    const nm=document.createElement("span"); nm.className="sn-name"; nm.textContent=s.name;
+    const del=document.createElement("button"); del.type="button"; del.className="sn-del"; del.textContent="×"; del.title=T("deleteSessionTitle");
+    del.onclick=(e)=>{ e.stopPropagation();
+      if(!confirm(lang==="en"?T("deleteSessionConfirm",s.name):`OKdelete「${s.name}」?The chat record will be permanently cleared.`)) return;
+      fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete",id:s.id})})
+        .then(r=>r.json()).then(res=>{ if(!res.ok) setStatus(T("deleteFailed")+(res.error||"")); });
+    };
+    d.appendChild(nm); d.appendChild(del); box.appendChild(d);
+    d.onclick=()=>switchSession(s.id);
+    d.ondblclick=(e)=>{ if(e.target===del) return; const n=prompt(T("sessionName"), s.name); if(n&&n.trim()){ fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"rename",id:s.id,name:n.trim()})}); } };
+  });
+}
+function switchSession(id){
+  if(!ws||ws.readyState!==1) return;
+  curSid=id; sessRender(); tbSessLabel();   // Optimistic Highlights + The sidebar immediately shows the targetsession name,Then the service side sends back the session's init
+  ws.send(JSON.stringify({type:"session", id:id}));
+}
+document.getElementById("newSessBtn").onclick=()=>{
+  fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"new"})})
+    .then(r=>r.json()).then(res=>{ if(res.ok) switchSession(res.id); else setStatus(T("newSessionFailed")+(res.error||"")); });
+};
+
+/* ---- connection and event ---- */
+function connect(){
+  const q = curSid ? ("?session="+encodeURIComponent(curSid)) : "";
+  setStatus(T("connecting"));
+  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws"+q);
+  ws.onopen=()=>{ setStatus(T("connected")); };
+  ws.onclose=()=>{ setStatus(T("disconnected")); setTimeout(connect,2000); };
+  ws.onerror=()=>{};
+  ws.onmessage=(e)=>{
+    const d=JSON.parse(e.data);
+    if(d.type==="init"){
+      me=d.you||"";
+      curSid=d.session_id||curSid;
+      sessionsCache=d.sessions||[]; sessRender();
+      const gname=lang==="en"?T("groupName"):d.group_name;
+      document.getElementById("groupName").textContent=gname;
+      document.getElementById("sideTitle").textContent=gname;
+      refreshMemberSub(d.members);
+      if(typeof d.max_llm_streak==="number") streakVal.textContent=d.max_llm_streak;
+      if(typeof d.max_tool_steps==="number") toolmaxVal.textContent=d.max_tool_steps;
+      membersCache = d.members||[];   // Function10:members Element comes with avatar + presence_status,Bubble Avatar/status point to render directly here(the members element also contains focus field → Address book switch initial value)
+      renderAgentDir();   // Function10d:init After drawing the bottom half of the left column agent Address Book
+      refreshTaskAgents();   // Function7:refresh Assign Assistant Dropdown + pull this sessiontask manifest/Daily Record/file channel
+      refreshTaskPanel();
+      renderHistory(d.history);
+    } else if(d.type==="message"){ tgClose(); clearAllTyping(); addMsg(d); }   // Feature#host-echo:The official message arrives → Collapse tool folding group before collapse
+    else if(d.type==="typing"){ showTyping(d.sender); }
+    else if(d.type==="error"){ hideTyping(d.sender); sysline(`⚠ ${d.sender}: ${d.content}`); }
+    else if(d.type==="stopped"){ hideTyping(d.sender); sysline(`${d.sender} ${T("stopped")}`); }
+    else if(d.type==="pass"){ hideTyping(d.sender); sysline(`${d.sender} passed this turn`); }
+    else if(d.type==="reset"){ tgClose(); clearAllTyping(); renderHistory([]); sysline(T("reset")); }
+    else if(d.type==="streak"){ streakVal.textContent=d.value; }
+    else if(d.type==="toolmax"){ toolmaxVal.textContent=d.value; }
+    else if(d.type==="sessions"){
+      sessionsCache=d.sessions||[]; sessRender(); tbSessLabel();   // new/renamed/sync sidebar session name after delete
+      // The session you are in is(Any client)on delete,auto cuts to the active session of the service-side target and reloads the context
+      if(curSid && !d.sessions.some(s=>s.id===curSid) && d.active){ curSid=null; switchSession(d.active); }
+    }
+    else if(d.type==="members"){ membersCache=d.members||[]; refreshTaskAgents();   // Function10b:Rename/Old bubbles on sync screen after replacing avatar(role in-place update)
+      if(d.renamed){ applyIdentityToDOM(d.renamed.from,d.renamed.to); }
+      else { updateAvatarsFor((d.avatar_changed)||"__none__"); syncDots(); renderAgentDir(); }   // avatar/sync address book line after role change(avatar/Name/Switching state)
+      const rc=d.role_changed||{};
+      const msg=d.added?T("newAssistant",d.added):d.removed?T("removed",d.removed):d.renamed?T("renamed",d.renamed.from,d.renamed.to):rc.name?T("roleSet",rc.name,rc.role==="leader"?T("leader"):T("member")):T("memberUpdated"); setStatus(msg); setTimeout(()=>{setStatus("");},2500); }
+    else if(d.type==="presence"){ const pm=memberBy(d.name);   // Function10:LLM online/offlinemigration(callsuccess→online, connectionfailed, etc.→offline)
+      if(pm){ pm.presence_status=d.status; if(d.status==="offline") pm.presence_info={reason:d.reason||T("connectionFailed"),ts:(Date.now()/1000)}; else delete pm.presence_info; }
+      syncDots(); renderAgentDir(); }   // Function10d:onlinestatusmigration → Address book line online/offlinelabelsyncrefresh
+    else if(d.type==="focus"){ const fm=memberBy(d.name);   // Function10d:Focus on schemastatusmigration(manual switch/taskauto on-Latching power down)——Global event,All windowsync badges, panel switches and contacts toggles
+      if(fm){ fm.focus={on:!!d.on, task_count:(typeof d.task_count==="number"?d.task_count:0)}; refreshMemberSub(membersCache); renderAgentDir(); setStatus(lang==="en"?(d.on?T("focusEntered",fm.name):T("focusExited",fm.name)):`${fm.name} ${d.on?"Enter":"exit"}the Focus Schema`); setTimeout(()=>{setStatus("");},2500); }
+    }
+    else if(d.type==="tool"){ tgCmd(d.sender, d.name||"shell", (d.cmd||"(null)")); }   // Feature#host-echo:Merge into current collapse group(No more brushing the screen one line at a time)
+    else if(d.type==="task"){ refreshTaskPanel(); }   // Function7/8:Variation of task for any client(new/done/sort)→ Full-end refresh list and ledger
+    else if(d.type==="files"){ if(!d.session||curSid===d.session) refreshTaskPanel(); }   // file channeladded registration(/api/upload OR agent [sendfile])→ autorefresh,No manual required;Skip event save request for other sessions
+  };
+}
+function roleLabel(m){ return m.kind==="human"?T("roleLabelBoss"):(m.role==="leader"?T("roleLabelLeader"):T("roleLabelMember")); }
+function refreshMemberSub(members){ document.getElementById("memberSub").textContent=(members||[]).map(m=>m.name+`(${roleLabel(m)})`+(m.kind==="llm"&&m.enabled===false?T("disabledSuffixSub"):"")+(m.kind==="llm"&&m.presence_status==="offline"?T("offlineSuffix"):"")+(m.kind==="llm"&&m.focus&&m.focus.on?T("focusSuffixSub"):"")).join(" · "); }   // Function10:the member line of the header part indicates the offline AI;Function10d:Append again(Focused)
+
+/* ---- tool echo collapse group(opencodeEnglish):The same members are merged into one continuous command <details>;default Collapse to show only the first few thumbnails+Count,Point Expansion Expand All;Formal message/Collapse when clearing the screen ---- */
+let _tg=null;   // {sender, el(details), sum(summary), list(div), n, items[]}
+function tgClose(){ _tg=null; }
+function tgShort(s){ s=String(s||"").replace(/\s+/g," ").trim(); return s.length>42?s.slice(0,42)+"…":(s||"(null)"); }
+function tgCmd(sender,name,cmd){
+  if(!_tg || _tg.sender!==sender){   // exchange people → Start another group;Same person continuous → Merge Into Current Group
+    const el=document.createElement("details"); el.className="toolgrp";
+    const sum=document.createElement("summary"); const list=document.createElement("div"); list.className="tglist";
+    el.appendChild(sum); el.appendChild(list); msgsEl.appendChild(el);
+    _tg={sender,el,sum,list,n:0,items:[]};
+  }
+  const g=_tg; g.n+=1; g.items.push(String(cmd||"(null)"));
+  if(g.n===1){ sum.textContent=`⚙ ${g.sender} · in executecommand…`; }   // First Instant Feedback(If this round is the only one,but also keep it simple and simple.)
+  else{ const first=g.items.slice(0,3).map(tgShort);
+    sum.textContent=`⚙ ${g.sender} · ${g.n} bar command | `+first.join("  /  ")+(g.n>3?` … (Also${g.n-3}Pcs)`:""); }   // Collapsed:First few abbreviations+Count,Point Expansion Open See All
+  const row=document.createElement("div"); row.className="tgcmd";
+  const i=document.createElement("span"); i.className="tgi"; i.textContent=`${g.n}. `;
+  const c=document.createElement("code"); c.textContent=(name!=="shell"?name+": ":"")+(cmd||"(null)");   // name Currently Constantly shell,Compatible with future multiple tools
+  row.appendChild(i); row.appendChild(c); g.list.appendChild(row);
+  smartScroll();
+}
+
+/* ---- Function1:Upper limit of toolcall per round ±(Real time)---- */
+const streakVal=document.getElementById("streakVal");
+const toolmaxVal=document.getElementById("toolmaxVal");
+function setStreak(n){ n=Math.max(1,Math.min(8,n|0)); streakVal.textContent=n; fetch("/api/streak",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_llm_streak:n})}).then(r=>r.json()).catch(()=>{}); }
+function setToolMax(n){ n=Math.max(1,Math.min(20,n|0)); toolmaxVal.textContent=n; fetch("/api/toolmax",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tool_steps:n})}).then(r=>r.json()).catch(()=>{}); }
+document.getElementById("decBtn").onclick=()=>setStreak(parseInt(streakVal.textContent)-1);
+document.getElementById("incBtn").onclick=()=>setStreak(parseInt(streakVal.textContent)+1);
+document.getElementById("decTool").onclick=()=>setToolMax(parseInt(toolmaxVal.textContent)-1);
+document.getElementById("incTool").onclick=()=>setToolMax(parseInt(toolmaxVal.textContent)+1);
+
+/* ---- Personnel settings settings elastic layer(Includes removal assistant + Function10b-v2:avatar live preview/Built-in default graph;People class seats can also change their avatar)---- */
+function fillAvPrev(pv,val,kind){   // real-time preview of the roleeditinput box(AND: resolveAvatarUrl Same rule):image→img,Text value→Color Block Words
+  pv.innerHTML=""; const u=avatarPreviewSrc(val,kind);
+  if(u!=null){ pv.style.background="#eee"; const im=new Image(); im.src=u; im.alt=""; pv.appendChild(im); return; }
+  const t=(val==null?"":String(val)).trim(), nm=kind==="human"?"Me":"AI";   // Text avatar → Color Block Word preview(Same style as bubbles)
+  pv.style.background=`hsl(${hue(nm)},52%,46%)`; pv.textContent=t?Array.from(t).slice(0,3).join(""):"Default graph";
+}
+function identRow(m){   // Row "role":avatarinput+Live preview(+ LLM First name input) → {row,iAv,iNm};Person class seat no name box(Changing the name will disrupt each client"Me")
+  const idr=document.createElement("div"); idr.className="pm-ident";
+  const lAv=document.createElement("label"); lAv.textContent="avatar:"; 
+  const iAv=document.createElement("input"); iAv.type="text"; iAv.value=m.avatar||"";
+  iAv.placeholder=`Leave null for default(${m.kind==="human"?"Me.png":"Ai.png"}) / headpicfile name asAr.png / imageURL`; 
+  const pv=document.createElement("span"); pv.className="avprev"; fillAvPrev(pv,m.avatar||"",m.kind);   // Live preview
+  iAv.addEventListener("input",()=>fillAvPrev(pv,iAv.value.trim(),m.kind));
+  idr.appendChild(lAv); idr.appendChild(iAv); idr.appendChild(pv);
+  let iNm=null;
+  if(m.kind==="llm"){ const lNm=document.createElement("label"); lNm.textContent="Name:"; 
+    iNm=document.createElement("input"); iNm.type="text"; iNm.value=m.name; iNm.maxLength=64; idr.appendChild(lNm); idr.appendChild(iNm); }
+  return {row:idr,iAv,iNm};
+}
+function openPanel(){
+  const box=document.getElementById("promptList"); box.innerHTML="";
+  (membersCache||[]).filter(m=>m.kind==="human").concat((membersCache||[]).filter(m=>m.kind==="llm")).forEach(m=>{   // Function10b-v2:People class seats at the top(Only avatar can be changed)
+    const d=document.createElement("div"); d.className="pm";
+    const t=document.createElement("div"); t.className="t";
+    const nm=document.createElement("span"); nm.className="mname"; nm.textContent=m.name;
+    const mt=document.createElement("span"); mt.className="mmeta";
+    mt.textContent=(m.kind==="human"?"Me's Seat":(m.model||"")+(m.executor?` · ${m.executor}`:""))+` · ${roleLabel(m)}`+((m.enabled===false&&m.kind==="llm")?" · Deactivated":"")+((m.kind==="llm"&&m.focus&&m.focus.on)?" · Focused":"");   // Function10d:Card header identifies members that are currently in a focused schema
+    t.appendChild(nm); t.appendChild(mt);
+    if(m.kind==="llm"){ const del=document.createElement("button"); del.type="button"; del.className="pdel"; del.textContent="Remove from X-Talk";
+      del.onclick=()=>{ if(confirm(`Remove ${m.name} from X-Talk? It will be deleted from config.json.`)){ fetch("/api/member/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name})}).then(r=>r.json()).then(res=>{ statusEl.textContent=res.ok?"Member removed":"Remove failed: "+(res.error||""); }); } };
+      t.appendChild(del); }
+    d.appendChild(t);
+    const id=identRow(m), iAv=id.iAv, iNm=id.iNm;   // Function10b-v2:avatar live preview(image/file Name/URL)
+    const bId=document.createElement("button"); bId.type="button";
+    if(m.kind==="human"){ bId.textContent="avatar for updateMe";
+      bId.onclick=()=>{ fetch("/api/member/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,avatar:iAv.value.trim()})}).then(r=>r.json()).then(res=>{ if(!res.ok){ statusEl.textContent="updatefailed:"+ (res.error||""); } else { statusEl.textContent="Me's avatar has been updated"; setTimeout(openPanel,600); } }); };
+    }else{ bId.textContent="updaterole";   // Renaming will sync override the members nickname in all sessionhistories
+      bId.onclick=()=>{ const nn=iNm.value.trim(), na2=iAv.value.trim(); if(!nn){ statusEl.textContent="First name cannot be null"; return; }
+        fetch("/api/member/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,rename:nn,avatar:na2})}).then(r=>r.json()).then(res=>{ if(!res.ok){ bId.textContent="failed:"+ (res.error||""); } else { statusEl.textContent= nn!==m.name?`${m.name} renamed to ${nn}`:"avatar/role updated"; setTimeout(openPanel,600); } }); };
+    }
+    id.row.appendChild(bId); d.appendChild(id.row);
+    if(m.kind==="llm"){   // Function10d/10f:Focus schema switch(Set save independently of people)——**Click is effective immediately at any time**(It can be closed even if there is a task, and it can be opened even if there is no);autoexit when dispatch auto enters, last taskdone and no remaining;Click the address book line to communicate private chat progress
+      const fb=document.createElement("button"); fb.type="button";
+      const fOn=!!(m.focus&&m.focus.on); const fTasks=(m.focus&&typeof m.focus.task_count==="number")?m.focus.task_count:0;
+      fb.style.cssText="margin:8px 0 4px;padding:6px 12px;border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:13px;background:"+(fOn?"#FA9D3B":"#9aa0a6");
+      fb.textContent=fOn?("Focus on schema ON"+(fTasks?` · ${fTasks} undonetasked`:"")+" —— clickclose"): "Focus Schema Off —— click on";
+      fb.onclick=()=>{ const want=!fOn; fetch("/api/focus",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,on:want})}).then(r=>r.json()).then(res=>{ if(!res.ok){ statusEl.textContent="Operation failed:"+ (res.error||""); return; }
+        m.focus={on:!!res.on, task_count:(typeof res.task_count==="number"?res.task_count:0)}; refreshMemberSub(membersCache); renderAgentDir();
+        const msg=want?`${m.name} Focused schema entered`:`${m.name} Exited Focused Schema`; statusEl.textContent=msg; setTimeout(()=>{statusEl.textContent="";},2500); }); };
+      d.appendChild(fb);
+    }
+    if(m.kind==="llm"){   // Feature#role:LLM roleselect——Up to one leader;save backend broadcast members/role_changed
+      const rr=document.createElement("div"); rr.className="pm-role"; rr.style.cssText="display:flex;align-items:center;gap:8px;margin:8px 0";
+      const lr=document.createElement("label"); lr.textContent="role:";
+      const sr=document.createElement("select"); sr.style.cssText="flex:1;padding:6px;border-radius:5px;border:1px solid #555;background:#2b2b2b;color:#eee";
+      const o1=document.createElement("option"); o1.value="member"; o1.textContent="members";
+      const o2=document.createElement("option"); o2.value="leader"; o2.textContent="leader";
+      sr.appendChild(o1); sr.appendChild(o2); sr.value=(m.role==="leader"?"leader":"member");
+      const br=document.createElement("button"); br.type="button"; br.textContent="saverole";
+      br.onclick=()=>{ const v=sr.value; fetch("/api/member/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,role:v})}).then(r=>r.json()).then(res=>{ if(!res.ok){ br.style.background="#fa5151"; br.textContent="failed:"+ (res.error||"Unknown error"); setTimeout(()=>{br.style.background="";br.textContent="saverole";},2500); return; }
+        m.role=res.role; refreshMemberSub(membersCache); renderAgentDir(); statusEl.textContent=`${m.name} Set to${roleLabel(m)}`; setTimeout(openPanel,600); }); };
+      rr.appendChild(lr); rr.appendChild(sr); rr.appendChild(br); d.appendChild(rr);
+    }
+    if(m.kind==="llm"){   // Feature#host:Located in hostmanualmodified——IPv4 OR IPv4:port(port omitted=Keep original port);modelport linkage with input,remote agent(pc_agent)port independent no linkage
+      const hr=document.createElement("div"); hr.className="pm-host";
+      const lh=document.createElement("label"); lh.textContent="Your host:"; 
+      const iH=document.createElement("input"); iH.type="text"; iH.value=m.host||""; iH.placeholder="As 192.168.1.2:11434(Without port=Keep original port)";
+      const bH=document.createElement("button"); bH.type="button"; bH.textContent="Change machine save";
+      bH.onclick=()=>{ const v=iH.value.trim(); if(!/^(\d{1,3}\.){3}\d{1,3}(:\d{1,5})?$/.test(v)){ statusEl.textContent="format should be IPv4 OR IPv4:port"; return; }
+        fetch("/api/member/host",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,host:v})}).then(r=>r.json()).then(res=>{ if(!res.ok){ bH.style.background="#fa5151"; bH.textContent="failed:"+ (res.error||"Unknown error"); } else { m.host=res.host; iH.value=res.host; bH.style.background="#07C160"; bH.textContent=res.changed?"Switched ✓":"address unchanged"; statusEl.textContent=`${m.name} Your host: ${res.host}`+(res.changed?" (Characters/host_hint Old address in please manualsync)":""); setTimeout(()=>{bH.style.background="";bH.textContent="Change machine save";statusEl.textContent="";},2500); } }); };
+      hr.appendChild(lh); hr.appendChild(iH); hr.appendChild(bH); d.appendChild(hr);
+    }
+    if(m.kind==="llm"){   // Characters textarea + save only for LLM(No people class seats set)
+      const ta=document.createElement("textarea"); ta.value=m.system_prompt||""; d.appendChild(ta);
+      const b=document.createElement("button"); b.type="button"; b.className="psave"; b.textContent="save this person set";
+      b.onclick=()=>{ fetch("/api/prompt",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:m.name,system_prompt:ta.value})}).then(r=>r.json()).then(res=>{ if(!res.ok){ b.style.background="#fa5151"; b.textContent="savefailed:"+ (res.error||"Unknown error"); } else { m.system_prompt=ta.value; b.style.background="#07C160"; b.textContent="saved ✓"; setTimeout(openPanel,800); } }); };
+      d.appendChild(b);
+    }
+    box.appendChild(d);
+  });
+  document.getElementById("overlay").style.display="flex";
+}
+document.getElementById("gearBtn").onclick=openPanel;
+document.getElementById("closePanel").onclick=()=>{document.getElementById("overlay").style.display="none";};
+
+/* ---- Function2:added means of assistance falls ---- */
+const addOverlay=document.getElementById("addOverlay");
+async function openAdd(){
+  const sel=document.getElementById("mType"); sel.innerHTML="";
+  try{ const r=await fetch("/api/types"); const j=await r.json(); (j.types||[]).forEach(t=>{ const o=new Option(t,t); sel.appendChild(o); }); }catch(e){}
+  ["mName","mAvatar","mModel","mBaseUrl","mPrompt","mExecUrl"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("mRole").value="member";
+  document.getElementById("mExecType").value=""; toggleExecRow();
+  addOverlay.style.display="flex";
+}
+function toggleExecRow(){ const v=document.getElementById("mExecType").value; document.getElementById("execUrlRow").style.display = (v==="remote"?"flex":"none"); }
+document.getElementById("addBtn").onclick=openAdd;
+document.getElementById("closeAdd").onclick=()=>{addOverlay.style.display="none";};
+document.getElementById("mExecType").onchange=toggleExecRow;
+document.getElementById("addSubmit").onclick=async ()=>{
+  const name=document.getElementById("mName").value.trim();
+  const type=document.getElementById("mType").value;
+  const model=document.getElementById("mModel").value.trim();
+  if(!name||!type||!model){ statusEl.textContent="Name/type/model is required"; return; }
+  const body={name,type,model};
+  const role=document.getElementById("mRole").value; if(role) body.role=role;
+  const bu=document.getElementById("mBaseUrl").value.trim(); if(bu) body.base_url=bu;
+  const mav2=document.getElementById("mAvatar").value.trim(); if(mav2) body.avatar=mav2.slice(0,128);   // Function10b:Join the group to bring customavatar
+  const pr=document.getElementById("mPrompt").value.trim(); if(pr) body.system_prompt=pr;
+  const et=document.getElementById("mExecType").value;
+  if(et==="local") body.executor={type:"local"};
+  else if(et==="remote"){ const u=document.getElementById("mExecUrl").value.trim(); if(!u){ statusEl.textContent="remote channel needs pc_agent address"; return;} body.executor={type:"remote",url:u}; }
+  const r=await fetch("/api/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(j.ok){ addOverlay.style.display="none"; statusEl.textContent=`${name} Enrolled`; }
+  else { statusEl.textContent="addfailed:"+ (j.error||r.status); }
+};
+
+/* ---- Function5:attachmentupload + chips ---- */
+const filePick=document.getElementById("filePick");
+let pendingFiles=[]; // [{name,size,path}]
+function renderChips(){
+  const box=document.getElementById("chips"); box.innerHTML="";
+  if(!pendingFiles.length){ box.style.display="none"; return; }
+  box.style.display="flex";
+  pendingFiles.forEach((f,i)=>{
+    const c=document.createElement("span"); c.className="chip";
+    const n=document.createElement("span"); n.className="cn"; n.textContent=`${f.name} (${(f.size/1024).toFixed(f.size<1048576?1:0)} KB)`; n.title=f.path;
+    const x=document.createElement("button"); x.type="button"; x.textContent="×"; x.onclick=()=>{ pendingFiles.splice(i,1); renderChips(); };
+    c.appendChild(n); c.appendChild(x); box.appendChild(c);
+  });
+}
+document.getElementById("clipBtn").onclick=()=>filePick.click();
+async function uploadOne(f){   // Single fileupload:Bring on session/sender → file_log.jsonl Registration"Who sent it at which session?"(file channel attributed by members)
+  const fd=new FormData(); fd.append("files",f);
+  const upq="?session="+encodeURIComponent(curSid||"")+"&sender="+encodeURIComponent(me||"");
+  const r=await fetch("/api/upload"+upq,{method:"POST",body:fd});
+  return {r, j:(await r.json())};
+}
+async function addFiles(list){   // Incorporate pending attachments one by one upload;returnsuccess number(failed writes the status bar)
+  let okc=0;
+  for(const f of list){
+    try{ const {j,r}=await uploadOne(f); if(j.ok&&j.files&&j.files[0]){ pendingFiles.push(j.files[0]); okc++; } else statusEl.textContent=`uploadfailed:${f.name} ${j.error||r.status}`; }
+    catch(e2){ statusEl.textContent=`uploadexception:${f.name}`; }
+  }
+  return okc;
+}
+filePick.onchange=async ()=>{ await addFiles([...filePick.files]); filePick.value=""; renderChips(); };
+
+/* ---- Function5b:Drag the file from the desktop to any position on the page → Directly join the pending attachment of the current session(Do not trigger browseropen)---- */
+const dropHint=document.createElement("div"); dropHint.className="drophint";
+dropHint.innerHTML='<span>Release the mouse,Add file to current sessionattachment</span>';
+document.body.appendChild(dropHint);
+let dcnt=0;   // Counting offset between child elements dragenter/dragleave Dithering of
+function hasFiles(e){ const t=e.dataTransfer&&e.dataTransfer.types; return !!(t&&Array.prototype.indexOf.call(t,"Files")>=0); }
+window.addEventListener("dragenter",(e)=>{ if(!hasFiles(e))return; e.preventDefault(); dcnt++; dropHint.style.display="flex"; });
+window.addEventListener("dragover",(e)=>{ if(hasFiles(e)){ e.preventDefault(); try{ e.dataTransfer.dropEffect="copy"; }catch(_){} } });
+window.addEventListener("dragleave",()=>{ dcnt=Math.max(0,dcnt-1); if(!dcnt) dropHint.style.display="none"; });
+window.addEventListener("drop",async(e)=>{
+  if(!hasFiles(e))return; e.preventDefault(); dcnt=0; dropHint.style.display="none";
+  const okc=await addFiles([...(e.dataTransfer.files||[])]); renderChips();
+  if(okc) statusEl.textContent=`has been transferred to ${okc} files added to pending attachment,send with message when send`;
+});
+
+/* ---- send(With attachment)---- */
+function send(){
+  const content=inputEl.value.trim();
+  if((!content && !pendingFiles.length)||!ws||ws.readyState!==1) return;
+  ws.send(JSON.stringify({type:"message",content,files:pendingFiles.slice()}));
+  inputEl.value=""; autoGrow(); pendingFiles=[]; renderChips();
+}
+sendBtn.onclick=()=>{ hideMent(); send(); };
+stopBtn.onclick=()=>fetch("/api/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:curSid||""})});
+
+/* ---- Function7/8:task sidebar(in progress / Daily Record / file channel)---- */
+let tasksCache=[], daysCache=[], filesCache=[]; let tbView="tasks";
+const taskbar=document.getElementById("taskbar"), tbListEl=document.getElementById("tbList");
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function tbSessLabel(){   // Asides tab The current session name is displayed to the right of the line:The content of all three tabs belongs only to this session
+  const el=document.getElementById("tbSessName"); if(!el) return;
+  const s=(sessionsCache||[]).find(x=>x.id===curSid);
+  el.textContent=s?("· "+s.name):""; el.title=s?`task/Daily Record/the file channels are all "${s.name}Unique`:"";
+}
+function refreshTaskPanel(){   // With sessiontoken:Old responseauto is voided after switching sessions
+  tbSessLabel();               // Sidebar Current Session Name(in progress/Daily Record/file channel are clicked on this sessionisolation)
+  const s=curSid; if(!s) return;
+  fetch("/api/tasks?session="+encodeURIComponent(s)).then(r=>r.json()).then(j=>{
+    if(curSid!==s||!j.ok) return;
+    tasksCache=j.tasks||[]; daysCache=(j.days||[]).slice();
+    document.getElementById("tCount").textContent=tasksCache.length?(" "+tasksCache.length):"";
+    tbRender();
+  }).catch(()=>{});
+  fetch("/api/files?session="+encodeURIComponent(s)).then(r=>r.json()).then(j2=>{
+    if(curSid!==s||!j2.ok) return; filesCache=j2.files||[];
+    if(tbView==="files") renderFiles();
+  }).catch(()=>{});
+}
+
+/* ---- dragsort:press and hold(≥250ms,Not moved)or grab handle → Not draggable;Dotted Green Indicator;Release Commit reorder ---- */
+let dragIdx=null, dropPos=-1, indEl=null;
+function ensureInd(){ if(!indEl){ indEl=document.createElement("div"); indEl.className="dropind"; } return indEl; }
+function endDrag(){ dragIdx=null; dropPos=-1; if(indEl&&indEl.parentNode) indEl.remove(); indEl=null; document.querySelectorAll(".trow").forEach(r=>{ r.classList.remove("dragging"); r.draggable=false; }); }
+tbListEl.addEventListener("dragover",(e)=>{
+  if(dragIdx===null) return; e.preventDefault(); try{ e.dataTransfer.dropEffect="move"; }catch(_){}
+  const rows=[...tbListEl.querySelectorAll(".trow:not(.dragging)")];
+  let pos=rows.length;
+  for(let i2=0;i2<rows.length;i2++){ if(e.clientY<(rows[i2].getBoundingClientRect().top+rows[i2].getBoundingClientRect().bottom)/2){ pos=i2; break; } }
+  if(pos===dropPos) return; dropPos=pos; const ind=ensureInd();
+  if(pos<rows.length) tbListEl.insertBefore(ind, rows[pos]);
+  else { const all=[...tbListEl.children].filter(el=>el.classList&&el.classList.contains("trow")); const last=all[all.length-1];
+         if(last&&last.nextSibling) tbListEl.insertBefore(ind,last.nextSibling); else tbListEl.appendChild(ind); }
+});
+tbListEl.addEventListener("drop",(e)=>{
+  if(dragIdx===null) return; e.preventDefault();
+  const ids=tasksCache.map(t=>t.id), did=ids.splice(dragIdx,1)[0];
+  let fin=Math.max(0,Math.min(dropPos<0?dragIdx:dropPos, ids.length));
+  if(fin!==dragIdx){
+    ids.splice(fin,0,did);
+    const byId={}; tasksCache.forEach(t=>byId[t.id]=t); tasksCache=ids.map(i2=>byId[i2]); tbRender();   // Optimistic update,WS broadcast back again alignment
+    fetch("/api/task",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"reorder",session:curSid||"",ids})}).then(r=>r.json()).catch(()=>{});
+  }
+  endDrag();
+});
+
+function renderTasks(){
+  tbListEl.innerHTML=""; if(indEl&&indEl.parentNode) indEl.remove(); dropPos=-1; dragIdx=null;
+  if(!tasksCache.length){ const e2=document.createElement("div"); e2.className="tb-empty"; e2.textContent="No tasks in progress yet\nFill in the content below, select the assistant, tap 'Distribute' to assign (will be sent directly to the group)"; tbListEl.appendChild(e2); return; }
+  tasksCache.forEach((t,i)=>{
+    const row=document.createElement("div"); row.className="trow";
+    // Long press on entire row ≥250ms(Period moved more than 6px)Only enable dragging —— Normal click/Check Unaffected;⠿The handle can be towed immediately
+    let holdT=null, pressing=false, psx=0, psy=0, pmoved=false;
+    row.addEventListener("pointerdown",(e)=>{ if(!e.isPrimary||e.target.closest("button,a")) return; pressing=true; psx=e.clientX; psy=e.clientY; pmoved=false; holdT=setTimeout(()=>{ if(pressing&&!pmoved){ row.draggable=true; try{ const dt=new DataTransfer(); row.dispatchEvent(new DragEvent("dragstart",{bubbles:true,cancelable:true,dataTransfer:dt})); }catch(_){} } },250); });
+    const endPress=()=>{ pressing=false; clearTimeout(holdT); };
+    row.addEventListener("pointerup",endPress); row.addEventListener("pointercancel",endPress);
+    row.addEventListener("pointermove",(e)=>{ if(!pressing) return; const dx=e.clientX-psx, dy=e.clientY-psy; if(dx*dx+dy*dy>36){ pmoved=true; clearTimeout(holdT); holdT=null; } psx=e.clientX; psy=e.clientY; });
+    const grip=document.createElement("span"); grip.className="grip"; grip.textContent="⠿"; grip.title="Long press and drag to sort(or press and hold this handle and drag directly)";
+    grip.draggable=true;   // Handle:No need to press and hold,Can be towed immediately
+    row.addEventListener("dragstart",(e)=>{ if(!row.draggable&&!grip.contains(e.target)) return; dragIdx=i; dropPos=-1; setTimeout(()=>row.classList.add("dragging"),0); try{ e.dataTransfer.effectAllowed="move"; }catch(_){} });
+    row.addEventListener("dragend",()=>endDrag());
+    const body=document.createElement("div"); body.className="tbody";
+    const ct=document.createElement("div"); ct.className="tcontent"; ct.textContent=t.content;
+    const meta=document.createElement("div"); meta.className="tmeta";
+    if(t.assignee){ const a2=document.createElement("span"); a2.className="tagasg"; a2.textContent="@"+t.assignee; a2.title="execute the task's assistant"; meta.appendChild(a2); }
+    const tm=document.createElement("span"); tm.className="ttime"; const dd=new Date((t.created||Date.now()/1000)*1000);
+    tm.textContent=`${dd.getMonth()+1}/${dd.getDate()} ${String(dd.getHours()).padStart(2,"0")}:${String(dd.getMinutes()).padStart(2,"0")}`; meta.appendChild(tm);
+    body.appendChild(ct); body.appendChild(meta);
+    const ck=document.createElement("button"); ck.type="button"; ck.className="btncheck"; ck.textContent="✓";
+    ck.title=`confirmdone:「${t.content.slice(0,40)}"was removed from the list and entered into the same day record`;
+    ck.onclick=()=>{ if(!confirm(`confirmdonetask?\n"${t.content.length>60?t.content.slice(0,60)+"…":t.content}"`)) return; fetch("/api/task",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"complete",session:curSid||"",id:t.id})}).then(r=>r.json()).catch(()=>{}); };
+    row.appendChild(grip); row.appendChild(body); row.appendChild(ck); tbListEl.appendChild(row);
+  });
+}
+
+function fmtDayCN(day){ const p2=String(day).split("-"); if(p2.length!==3) return day; const y=+p2[0], m=+p2[1], d2=+p2[2];
+  const wk=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(y,m-1,d2).getDay()]; return `${m}/${d2} · ${wk}${y!==new Date().getFullYear()?` (${y})`:""}`; }
+function dayLi(item,cls){ const li=document.createElement("li"); li.className=cls; const s=document.createElement("span"); s.className="ltx"; s.textContent=item.content||"(null)"; li.appendChild(s); if(item.assignee){ const m2=document.createElement("span"); m2.className="limeta"; m2.textContent="@"+item.assignee; li.appendChild(m2);} return li; }
+function renderDays(){
+  tbListEl.innerHTML="";
+  if(!daysCache.length||!daysCache.some(d3=>d3.done&&d3.done.length||(d3.undone&&d3.undone.length))){ const e2=document.createElement("div"); e2.className="tb-empty"; e2.textContent="There are no task records yet\nAfter issuing the first task,This place will be registered by day incremental done / Not Done Situation"; tbListEl.appendChild(e2); return; }
+  daysCache.forEach(dd=>{ if(!(dd.done&&dd.done.length)&&!(dd.undone&&dd.undone.length)) return;
+    const blk=document.createElement("div"); blk.className="dayblk";
+    const hd=document.createElement("div"); hd.className="dhead";
+    const h1=document.createElement("span"); h1.textContent=fmtDayCN(dd.day)+(String(dd.day)===todayStr()?"(Today)":"");
+    const hc=document.createElement("span"); hc.className="dcount"; hc.textContent=`✓ ${dd.done.length} · Not done ${dd.undone.length}`;
+    hd.appendChild(h1); hd.appendChild(hc); blk.appendChild(hd);
+    if(dd.done&&dd.done.length){ const ul=document.createElement("ul"); dd.done.forEach(it=>ul.appendChild(dayLi(it,"li-done"))); blk.appendChild(ul); }
+    if(dd.undone&&dd.undone.length){ const ul2=document.createElement("ul"); dd.undone.forEach(it=>ul2.appendChild(dayLi(it,"li-undone"))); blk.appendChild(ul2); }
+    tbListEl.appendChild(blk); });
+}
+
+function renderFiles(){
+  tbListEl.innerHTML="";
+  if(!filesCache.length){ const e2=document.createElement("div"); e2.className="tb-empty"; e2.textContent="This session has not shared a file yet\nSend attachment in chat(image/document)back,Here will be registered by uploader;agent can be directly referenced between passing"; tbListEl.appendChild(e2); return; }
+  filesCache.forEach(f=>{ const r=document.createElement("div"); r.className="filerow";
+    const a=document.createElement("a"); a.href="/uploads/"+encodeURIComponent(String(f.stored||"")); a.target="_blank"; a.textContent=f.orig||f.stored||"(file)"; a.title=`${f.sender?("@"+f.sender+" upload"):""} · ${new Date((f.ts||0)*1000).toLocaleString()}`;
+    const w=document.createElement("span"); w.className="filewho"; w.textContent=f.sender?("@"+f.sender):""; 
+    r.appendChild(a); if(f.sender) r.appendChild(w); tbListEl.appendChild(r); });
+}
+
+function tbRender(){ if(!curSid) return; if(tbView==="tasks") renderTasks(); else if(tbView==="days") renderDays(); else renderFiles(); }
+document.querySelectorAll(".tb-tab").forEach(el=>{ el.onclick=()=>{ tbView=el.dataset.v; document.querySelectorAll(".tb-tab").forEach(x2=>x2.classList.toggle("on",x2===el)); document.getElementById("tbComposer").style.display=(tbView==="tasks"?"flex":"none"); if(tbView==="files") refreshTaskPanel(); else tbRender(); }; });
+
+/* ---- Function7: task dispatch (new task = content + target assistant, single-row API creates the order and triggers chat) ---- */
+function refreshTaskAgents(){ const sel=document.getElementById("taskAgent"); if(!sel) return; const cur=sel.value;
+  const opts=[["","Common Tasks(Do not call)"]]; (membersCache||[]).filter(m=>m.kind==="llm"&&m.enabled!==false).forEach(m=>opts.push([m.name,m.name]));
+  sel.innerHTML=""; opts.forEach(([v,l2])=>{ const o=new Option(l2,v); sel.appendChild(o); }); if([...sel.options].some(o=>o.value===cur)) sel.value=cur; }
+document.getElementById("dispatchBtn").onclick=()=>{
+  const ta=document.getElementById("taskText"); const content=ta.value.trim();
+  if(!content){ statusEl.textContent="Fill in taskcontent first"; return; } if(!curSid) return;
+  fetch("/api/task",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",session:curSid,content,assignee:(document.getElementById("taskAgent").value||"")})})
+    .then(r=>r.json()).then(j=>{ if(j.ok) ta.value=""; else statusEl.textContent="Issued failed:"+ (j.error||""); }).catch(e2=>statusEl.textContent="Issue exception:"+(e2&&e2.message?e2.message:e2));
+};
+
+/* ---- Function8(INLET):header section "task" button switch sidebar,memory preferences ---- */
+const tasksBtn=document.getElementById("tasksBtn");
+function setTasksOpen(on){ document.body.classList.toggle("tasks-open",on); tasksBtn.classList.toggle("on",on); try{ localStorage.setItem("gc_tasks_open",on?"1":"0"); }catch(_){} tbRender(); }
+tasksBtn.onclick=()=>setTasksOpen(!document.body.classList.contains("tasks-open"));
+try{ if(localStorage.getItem("gc_tasks_open")==="1") setTasksOpen(true); }catch(_){}
+
+/* ---- Function6:@Roll Call Elastic Layer(message opens headerinput @ → candidate Assistant,Return/clickselect)---- */
+const mentMenu=document.getElementById("mentMenu"); let mentItems=[], hotIdx=0;
+function hideMent(){ mentMenu.style.display="none"; mentMenu.innerHTML=""; mentItems=[]; }
+function updateMent(){
+  const v=inputEl.value; let caret=null; try{ caret=inputEl.selectionStart; }catch(_){} if(caret===null) { hideMent(); return; }
+  const m3=/^@([^\s@，。！？!?：:；;,]{0,32})$/.exec(v.slice(0,caret));   // Consistent with backend parse:message-only header's @ ENTRY INTO FORCE
+  if(!m3){ hideMent(); return; }
+  const cand=(membersCache||[]).filter(m=>m.kind==="llm"&&m.enabled!==false&&(m.name===m3[1]||m.name.startsWith(m3[1])));
+  if(!cand.length){ hideMent(); return; }
+  mentItems=cand.map(c2=>({name:c2.name, caret})); hotIdx=0;
+  mentMenu.innerHTML=""; cand.forEach((c2,i4)=>{ const it=document.createElement("div"); it.className="mm-item"+(i4===hotIdx?" hot":""); it.textContent="@"+c2.name;
+    it.onmousedown=(e5)=>{ e5.preventDefault(); pickMent(c2.name, mentItems[i4].caret); };   // mousedown Before blur,Keep the input box in focus
+    it.onclick=()=>{}; mentMenu.appendChild(it); });
+  const r=inputEl.getBoundingClientRect(); mentMenu.style.display="block";
+  mentMenu.style.left=Math.max(8,r.left)+"px"; mentMenu.style.top=(r.bottom+6)+"px";
+}
+function pickMent(nm,caretPos){ const v=inputEl.value; inputEl.value="@"+nm+" "+v.slice(caretPos);
+  requestAnimationFrame(()=>{ const np=2+nm.length; try{ inputEl.setSelectionRange(np,np);}catch(_){} inputEl.focus(); }); hideMent(); autoGrow(); }
+
+inputEl.addEventListener("keydown",(e)=>{
+  if(mentMenu.style.display==="block"){
+    if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const it=mentItems[hotIdx]; if(it) pickMent(it.name,it.caret); return; }
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); hotIdx=(hotIdx+(e.key==="ArrowDown"?1:mentItems.length-1))%Math.max(1,mentItems.length); mentMenu.querySelectorAll(".mm-item").forEach((el2,i5)=>el2.classList.toggle("hot",i5===hotIdx)); return; }
+    if(e.key==="Escape"){ e.preventDefault(); hideMent(); return; }
+  }
+  if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); }
+});
+function autoGrow(){ inputEl.style.height="auto"; inputEl.style.height=Math.min(inputEl.scrollHeight,96)+"px"; }
+inputEl.addEventListener("input",()=>{ autoGrow(); updateMent(); });
+inputEl.addEventListener("blur",()=>setTimeout(hideMent,150));
+
+connect();
+</script>
+</body>
+</html>

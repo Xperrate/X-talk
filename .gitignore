@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+config.json
+.env
+*.key
+*.db
+*.log
+data/
+uploads/
+models/
+*.gguf
+*.safetensors
